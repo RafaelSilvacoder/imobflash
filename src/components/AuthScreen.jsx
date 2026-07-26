@@ -42,7 +42,7 @@ export default function AuthScreen() {
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white">
             IQ
           </div>
-          <h1 className="text-2xl font-bold text-white">ImobQuick</h1>
+          <h1 className="text-2xl font-bold text-white">ImobFlash</h1>
           <p className="text-center text-sm text-slate-400">
             Cadastre imóveis e gere textos de divulgação com IA, direto do celular.
           </p>
