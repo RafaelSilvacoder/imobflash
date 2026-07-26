@@ -110,7 +110,7 @@ export default function ProfileScreen({ profile, onOpenAdmin, onProfileUpdated }
               className={inputClass}
               value={brokerName}
               onChange={(e) => setBrokerName(e.target.value)}
-              placeholder="Ex: Suzelle Kaline"
+              placeholder="Ex: Ana Silva"
             />
           </div>
           <div>
