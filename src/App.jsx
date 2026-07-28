@@ -9,9 +9,10 @@ import {
 } from './services/propertyService'
 import { getMyProfile, hasActiveSubscription, isAdmin, hasBrokerInfo } from './services/profileService'
 import { registerCurrentDevice } from './services/deviceService'
-import { buildWhatsappLink } from './utils/whatsappLink'
+import { buildWhatsappLink, appendWhatsappLinkToText } from './utils/whatsappLink'
 
 import AuthScreen from './components/AuthScreen'
+import ResetPasswordScreen from './components/ResetPasswordScreen'
 import SubscriptionGate from './components/SubscriptionGate'
 import DeviceBlockedScreen from './components/DeviceBlockedScreen'
 import AdminPanel from './components/AdminPanel'
@@ -31,6 +32,7 @@ export default function App() {
   const [profile, setProfile] = useState(null)
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
 
   // 'checking' | 'approved' | 'blocked' | 'rejected' | 'revoked'
   const [deviceStatus, setDeviceStatus] = useState('checking')
@@ -56,7 +58,14 @@ export default function App() {
       setSession(data?.session ?? null)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // Disparado quando a pessoa clica no link de "esqueci minha senha"
+      // recebido por e-mail — mostra a tela de definir nova senha em vez
+      // do fluxo normal do app.
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true)
+      }
+
       setSession(newSession)
       if (!newSession) {
         setProfile(null)
@@ -150,7 +159,16 @@ export default function App() {
       }
 
       const texts = await generatePropertyTexts(propertyWithBroker)
-      setModalTexts(texts)
+
+      // Insere o link clicável do WhatsApp direto dentro do texto do
+      // WhatsApp — assim, ao colar o texto num post/anúncio, o link já
+      // vem junto, clicável, sem precisar de nenhum botão separado.
+      const textsWithLink = {
+        ...texts,
+        whatsapp: appendWhatsappLinkToText(texts.whatsapp, profile?.broker_phone),
+      }
+
+      setModalTexts(textsWithLink)
       setModalReadOnly(false)
       setSaved(false)
       setPendingProperty(formData)
@@ -243,7 +261,7 @@ export default function App() {
 
     if (!link) {
       alert(
-        'Cadastre seu WhatsApp na aba Perfil pra gerar um link clicável (tipo os que aparecem em anúncios do Facebook). Por enquanto, copiei só a mensagem.'
+        'Cadastre seu WhatsApp na aba Perfil pra gerar o link do WhatsApp (com DDD, ex: 81999998888).'
       )
       try {
         await navigator.clipboard.writeText(message)
@@ -253,11 +271,12 @@ export default function App() {
       return
     }
 
+    // Abre o WhatsApp direto (funciona igual clicar num link de anúncio)
+    window.open(link, '_blank', 'noopener,noreferrer')
+
+    // E também copia, caso o corretor queira colar em algum anúncio depois
     try {
       await navigator.clipboard.writeText(link)
-      alert(
-        'Link copiado! Cole no campo de link do seu anúncio (Facebook, Instagram, etc) — ao clicar, abre direto a conversa no seu WhatsApp com a mensagem pronta.'
-      )
     } catch (err) {
       console.error(err)
     }
@@ -284,6 +303,13 @@ export default function App() {
   // --------------------------------------------------------
   // Renderização condicional: carregando / login / assinatura / app
   // --------------------------------------------------------
+
+  // Prioridade máxima: se a pessoa clicou no link de recuperação de senha,
+  // mostra a tela de definir nova senha, independente de qualquer outro estado.
+  if (isPasswordRecovery) {
+    return <ResetPasswordScreen />
+  }
+
   if (session === undefined || (session && isLoadingProfile && !profile)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -326,9 +352,6 @@ export default function App() {
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-[#0f172a] px-4 py-4">
         <div className="mx-auto flex max-w-md items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-lg font-bold text-white">
-              IF
-            </div>
             <span className="text-lg font-bold text-white">ImobFlash</span>
           </div>
         </div>

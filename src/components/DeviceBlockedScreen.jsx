@@ -44,7 +44,7 @@ export default function DeviceBlockedScreen({ status }) {
         </div>
 
         <p className="mt-4 text-xs text-slate-500">
-          Cada assinatura do ImobQuick pode ser usada em até <strong className="text-slate-300">2 dispositivos</strong>.
+          Cada assinatura do ImobFlash pode ser usada em até <strong className="text-slate-300">2 dispositivos</strong>.
           Isso protege sua conta e impede o uso compartilhado indevido.
         </p>
 

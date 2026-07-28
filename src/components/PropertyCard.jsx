@@ -82,7 +82,7 @@ export default function PropertyCard({ property, onViewTexts, onCopyWhatsapp, on
             className="flex flex-col items-center gap-1 rounded-xl bg-green-50 py-2.5 text-green-700 active:bg-green-100"
           >
             <MessageCircle size={16} />
-            <span className="text-[11px] font-medium">Link WhatsApp</span>
+            <span className="text-[11px] font-medium">Abrir WhatsApp</span>
           </button>
           <button
             onClick={() => onDelete(property)}

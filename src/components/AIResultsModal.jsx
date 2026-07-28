@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { X, Copy, Check, Save, Loader2, Instagram, Building2, MessageCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { X, Copy, Check, Save, Loader2, Instagram, Building2, MessageCircle, Link2, RotateCcw } from 'lucide-react'
+import { buildWhatsappLink } from '../utils/whatsappLink'
 
 const TABS = [
   { id: 'instagram', label: 'Instagram', icon: Instagram },
@@ -7,21 +8,58 @@ const TABS = [
   { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
 ]
 
-export default function AIResultsModal({ texts, onClose, onSave, isSaving, saved, readOnly }) {
+export default function AIResultsModal({ texts, onClose, onSave, isSaving, saved, readOnly, brokerPhone }) {
   const [activeTab, setActiveTab] = useState('instagram')
   const [copiedTab, setCopiedTab] = useState(null)
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  // Cópia editável dos textos: começa igual ao que a IA gerou, mas o
+  // corretor pode personalizar antes de copiar (texto ou link), sem perder
+  // o texto original gerado especificamente para aquele imóvel.
+  const [editedTexts, setEditedTexts] = useState(texts || {})
+
+  // Sempre que abrir o modal com um novo conjunto de textos (novo imóvel
+  // gerado, ou "Ver Textos IA" de outro imóvel), reseta a edição.
+  useEffect(() => {
+    setEditedTexts(texts || {})
+  }, [texts])
 
   if (!texts) return null
 
+  function handleChangeText(tabId, value) {
+    setEditedTexts((prev) => ({ ...prev, [tabId]: value }))
+  }
+
+  function handleResetText(tabId) {
+    setEditedTexts((prev) => ({ ...prev, [tabId]: texts[tabId] }))
+  }
+
   async function handleCopy(tabId) {
     try {
-      await navigator.clipboard.writeText(texts[tabId] || '')
+      await navigator.clipboard.writeText(editedTexts[tabId] || '')
       setCopiedTab(tabId)
       setTimeout(() => setCopiedTab(null), 2000)
     } catch (err) {
       console.error('Erro ao copiar texto:', err)
     }
   }
+
+  async function handleCopyWhatsappLink() {
+    const link = buildWhatsappLink(brokerPhone, editedTexts.whatsapp)
+    if (!link) return
+
+    window.open(link, '_blank', 'noopener,noreferrer')
+
+    try {
+      await navigator.clipboard.writeText(link)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch (err) {
+      console.error('Erro ao copiar link:', err)
+    }
+  }
+
+  const wasEdited = editedTexts[activeTab] !== texts[activeTab]
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm">
@@ -60,9 +98,26 @@ export default function AIResultsModal({ texts, onClose, onSave, isSaving, saved
 
         {/* Conteúdo */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-[14px] leading-relaxed text-slate-700">
-            {texts[activeTab] || 'Nenhum texto gerado ainda.'}
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-xs text-slate-400">Toque no texto pra personalizar antes de copiar</p>
+            {wasEdited && (
+              <button
+                onClick={() => handleResetText(activeTab)}
+                className="flex items-center gap-1 text-xs font-medium text-blue-600"
+              >
+                <RotateCcw size={12} /> Restaurar original
+              </button>
+            )}
           </div>
+
+          <textarea
+            value={editedTexts[activeTab] ?? ''}
+            onChange={(e) => handleChangeText(activeTab, e.target.value)}
+            rows={8}
+            className="w-full resize-none rounded-xl bg-slate-50 p-4 text-[14px] leading-relaxed text-slate-700
+                       focus:outline-none focus:ring-2 focus:ring-blue-200"
+            placeholder="Nenhum texto gerado ainda."
+          />
 
           <button
             onClick={() => handleCopy(activeTab)}
@@ -82,6 +137,29 @@ export default function AIResultsModal({ texts, onClose, onSave, isSaving, saved
               </>
             )}
           </button>
+
+          {activeTab === 'whatsapp' && (
+            <button
+              onClick={handleCopyWhatsappLink}
+              disabled={!brokerPhone}
+              className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition ${
+                linkCopied
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-green-600 text-white active:scale-[0.98]'
+              } disabled:bg-slate-200 disabled:text-slate-400`}
+            >
+              {linkCopied ? (
+                <>
+                  <Check size={16} /> Link copiado!
+                </>
+              ) : (
+                <>
+                  <Link2 size={16} />
+                  {brokerPhone ? 'Abrir WhatsApp (e copiar link)' : 'Cadastre seu WhatsApp no Perfil'}
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Footer / Salvar */}

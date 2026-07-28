@@ -32,13 +32,34 @@ export function formatPhoneForWhatsapp(phone) {
 }
 
 /**
- * Monta o link clicável do WhatsApp com mensagem pré-preenchida.
+ * Monta o link clicável do WhatsApp.
+ * Se `message` for informado, o link já abre a conversa com a mensagem
+ * pré-preenchida (bom pro botão "Abrir WhatsApp" dentro do app).
+ * Se `message` for omitido, gera um link limpo (sem parâmetros), ideal
+ * pra colar dentro do próprio texto do anúncio/post.
  * Retorna null se não houver telefone válido.
  */
 export function buildWhatsappLink(phone, message) {
   const formattedPhone = formatPhoneForWhatsapp(phone)
   if (!formattedPhone) return null
 
-  const encodedMessage = encodeURIComponent(message || '')
+  if (!message) {
+    return `https://wa.me/${formattedPhone}`
+  }
+
+  const encodedMessage = encodeURIComponent(message)
   return `https://wa.me/${formattedPhone}?text=${encodedMessage}`
+}
+
+/**
+ * Insere o link limpo do WhatsApp ao final de um texto (ex: o texto do
+ * WhatsApp/Instagram/Portal gerado pela IA), pronto pra ser postado com
+ * o link já clicável dentro do próprio texto — sem precisar de botão
+ * separado no anúncio.
+ * Se não houver telefone válido, devolve o texto original sem alteração.
+ */
+export function appendWhatsappLinkToText(text, phone) {
+  const link = buildWhatsappLink(phone)
+  if (!link) return text
+  return `${text || ''}\n\n👉 Fale comigo agora: ${link}`
 }

@@ -6,7 +6,6 @@ compressão e upload de fotos, geração de textos de divulgação com IA
 "Indique e Ganhe".
 
 ## Stack
-
 - React + Vite
 - Tailwind CSS
 - Supabase (Auth, Database, Storage, RLS)
@@ -20,7 +19,6 @@ cp .env.example .env
 ```
 
 Preencha o `.env`:
-
 - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — em Project Settings > API no Supabase.
 - `VITE_APP_URL` — domínio público do app (usado no link de indicação).
 - `VITE_CHECKOUT_URL` — URL do checkout de assinatura (Asaas/Mercado Pago).
@@ -28,10 +26,10 @@ Preencha o `.env`:
 A chave da OpenAI **não vai no `.env` do frontend** — veja a seção 8 para
 configurá-la como secret da Edge Function.
 
+
 ## 2. Banco de dados
 
 No **SQL Editor** do Supabase, rode o conteúdo de `sql/schema.sql`. Ele cria:
-
 - `profiles` — assinatura, role (`user`/`admin`), código e progresso de indicação;
 - trigger `handle_new_user` — cria o perfil automaticamente no cadastro, com
   7 dias de trial e vinculando `referred_by` (lido do metadata enviado no signup);
@@ -43,7 +41,6 @@ No **SQL Editor** do Supabase, rode o conteúdo de `sql/schema.sql`. Ele cria:
 - bucket `property-photos` no Storage, com políticas de upload/leitura/exclusão.
 
 Depois de criar sua conta pelo app, torne-a admin rodando:
-
 ```sql
 update public.profiles set role = 'admin' where email = 'seu-email@exemplo.com';
 ```
@@ -65,7 +62,6 @@ update public.profiles set role = 'admin' where email = 'seu-email@exemplo.com';
 
 Visível apenas para perfis com `role === 'admin'` (botão "⚙️ Painel Admin" na
 aba Perfil). `src/components/AdminPanel.jsx` tem duas abas internas:
-
 - **Perfis** — lista todos os perfis, com busca por e-mail, "🎁 Conceder 7
   Dias Grátis" (chama `grant_free_days` no banco) e "Ativação Manual"
   (assinatura "ilimitada" de 10 anos, para demonstrações).
@@ -78,7 +74,6 @@ Evita que uma única assinatura seja compartilhada entre vários corretores
 (ex: uma imobiliária com 10 corretores usando o mesmo login).
 
 **Como funciona:**
-
 1. No primeiro acesso, o app gera um ID único do dispositivo (UUID salvo em
    `localStorage`, `src/services/deviceService.js`) e o registra no banco via
    a função `register_or_check_device` (RPC).
@@ -104,18 +99,78 @@ correrem o risco de ficar trancados fora do próprio painel.
 ## 6. Indique e Ganhe
 
 `src/components/ReferralSection.jsx` exibe:
-
 - o link único de indicação (`VITE_APP_URL/register?ref=CODIGO`), com botão
   "Copiar Meu Link de Convite";
 - barra de progresso do par atual (ex: 1/2) até o próximo bônus de +30 dias;
 - total de indicados pagantes e de meses grátis acumulados.
 
-⚠️ A contagem de indicados **pagos** e a concessão dos +30 dias são feitas
-pela função `process_paid_referral(referrer_code)` no banco, que deve ser
-chamada pelo seu backend/webhook de pagamento quando a cobrança de um
-indicado for confirmada — isso está fora do escopo do frontend.
+A contagem de indicados **pagos** e a concessão dos +30 dias são feitas pela
+função `process_paid_referral(referrer_code)` no banco, chamada
+automaticamente pela Edge Function `asaas-webhook` (ver seção 7) na primeira
+cobrança confirmada de cada indicado.
 
-## 7. Dados do corretor salvos automaticamente
+## 7. Pagamento da assinatura (Asaas)
+
+O botão "Assinar" leva pra um link de checkout do Asaas
+(`VITE_CHECKOUT_URL`). Para que o pagamento **ative a assinatura
+automaticamente** no banco (sem você precisar liberar manualmente cada
+corretor), existe a Edge Function `supabase/functions/asaas-webhook`.
+
+**O que ela faz quando o Asaas confirma um pagamento:**
+1. Identifica o perfil do corretor (por `asaas_customer_id`, ou na primeira
+   vez, buscando o e-mail do cliente na API do Asaas e casando com
+   `profiles.email`);
+2. Ativa a assinatura e soma **+30 dias** a partir de hoje (ou do vencimento
+   atual, se ainda não tiver expirado);
+3. Se esse corretor foi indicado por alguém (`referred_by`) e ainda não gerou
+   o bônus (`referral_bonus_processed = false`), chama
+   `process_paid_referral` e marca como processado — garantindo que o bônus
+   só é dado **uma vez por indicado**, não em toda renovação mensal.
+
+**Passo a passo de configuração:**
+
+1. Crie sua conta em [asaas.com](https://www.asaas.com) e configure um plano
+   de assinatura recorrente de R$ 39,90/mês (ou o valor que preferir).
+   Copie o link de checkout gerado e coloque em `VITE_CHECKOUT_URL` no `.env`
+   (e nas variáveis de ambiente da Vercel).
+
+2. Pegue sua **API Key** do Asaas: painel → **Integrações > API** (use a
+   chave de sandbox pra testar antes de ir pra produção).
+
+3. Defina um **token de webhook** — qualquer string secreta seguida por você
+   (ex: gerada em [passwordsgenerator.net](https://passwordsgenerator.net)).
+
+4. Configure os secrets da Edge Function:
+   ```bash
+   npx -y supabase secrets set ASAAS_API_KEY=sua_api_key_do_asaas
+   npx -y supabase secrets set ASAAS_WEBHOOK_TOKEN=seu_token_secreto_aqui
+   ```
+   Se estiver testando no sandbox do Asaas, defina também:
+   ```bash
+   npx -y supabase secrets set ASAAS_API_URL=https://sandbox.asaas.com/api/v3
+   ```
+   (em produção, omita essa variável — o padrão já é a API de produção)
+
+5. Publique a function:
+   ```bash
+   npx -y supabase functions deploy asaas-webhook
+   ```
+
+6. No painel do Asaas, vá em **Integrações > Webhooks** e cadastre:
+   - **URL**: `https://SEU_PROJECT_REF.supabase.co/functions/v1/asaas-webhook`
+   - **Token de autenticação**: o mesmo valor que você colocou em
+     `ASAAS_WEBHOOK_TOKEN`
+   - **Eventos**: marque pelo menos `PAYMENT_CONFIRMED` e `PAYMENT_RECEIVED`
+
+7. Rode o `sql/schema.sql` (ou só a seção 7, "Integração com Asaas") se ainda
+   não tiver as colunas `asaas_customer_id` e `referral_bonus_processed` na
+   tabela `profiles`.
+
+⚠️ **Importante:** o e-mail que a pessoa usa pra pagar no Asaas precisa ser
+o **mesmo e-mail** da conta dela no ImobQuick, senão o webhook não consegue
+vincular o pagamento ao perfil certo.
+
+## 8. Dados do corretor salvos automaticamente
 
 Para o corretor não digitar nome/CRECI/telefone em todo anúncio, esses dados
 são preenchidos **uma única vez** na aba **Perfil** (`ProfileScreen.jsx` →
@@ -134,10 +189,9 @@ seção "Meus dados de corretor") e ficam salvos em `profiles.broker_name`,
 formulário (`NewPropertyForm.jsx`), junto com Quartos/Banheiros/Vagas — é
 opcional, o corretor preenche só se quiser.
 
-## 8. Compressão de imagens no cliente
+## 9. Compressão de imagens no cliente
 
 Antes de qualquer foto ser enviada ao Storage, `src/utils/imageCompression.js`:
-
 - converte para **WebP**;
 - redimensiona para **largura máxima de 1200px** (mantendo proporção);
 - aplica **qualidade 0.8**.
@@ -146,18 +200,16 @@ Implementação nativa com `Canvas`/`createImageBitmap` (sem dependências
 extras). Há um bloco comentado no arquivo mostrando como trocar pela
 biblioteca `browser-image-compression`, se preferir.
 
-## 9. Exclusão completa de imóveis (Storage + Database)
+## 10. Exclusão completa de imóveis (Storage + Database)
 
 O botão **"Excluir Imóvel"** chama `deleteProperty(property)` em
 `propertyService.js`, que:
-
 1. remove as fotos do bucket `property-photos` no Storage;
 2. remove o registro do imóvel na tabela `properties`.
 
-## 10. Sobre a chamada de IA e a Edge Function
+## 11. Sobre a chamada de IA e a Edge Function
 
 `src/services/aiService.js` exporta:
-
 - `generatePropertyTexts(property)` → chama a **Edge Function do Supabase**
   `generate-property-texts` (não a OpenAI diretamente), que retorna
   `{ instagram, portal, whatsapp }`.
@@ -166,35 +218,30 @@ O botão **"Excluir Imóvel"** chama `deleteProperty(property)` em
 
 ### Protegendo a chave da OpenAI
 
-A chave da OpenAI **não fica no frontend**. Ela é configurada como _secret_
+A chave da OpenAI **não fica no frontend**. Ela é configurada como *secret*
 da Edge Function em `supabase/functions/generate-property-texts/index.ts`,
 que roda no servidor do Supabase e nunca é exposta ao navegador.
 
 **Passo a passo do deploy:**
 
 1. Instale a Supabase CLI (se ainda não tiver):
-
    ```bash
    npm install -g supabase
    ```
 
 2. Faça login e vincule o projeto:
-
    ```bash
    supabase login
    supabase link --project-ref SEU_PROJECT_REF
    ```
-
    (o `PROJECT_REF` fica em Project Settings > General no painel do Supabase)
 
 3. Configure a chave da OpenAI como secret da function:
-
    ```bash
    supabase secrets set OPENAI_API_KEY=sk-sua-chave-aqui
    ```
 
 4. Faça o deploy da function:
-
    ```bash
    supabase functions deploy generate-property-texts
    ```
@@ -205,24 +252,25 @@ que roda no servidor do Supabase e nunca é exposta ao navegador.
    Não é preciso nenhuma variável de OpenAI no `.env` do frontend.
 
 **Testando localmente antes do deploy (opcional):**
-
 ```bash
 supabase functions serve generate-property-texts --env-file ./supabase/.env
 ```
-
 Crie `supabase/.env` (não commitado) com `OPENAI_API_KEY=sk-...` para testar
 a function localmente antes de subir pra produção.
 
-## 11. Estrutura de pastas
+## 12. Estrutura de pastas
 
 ```
 imobquick/
 ├── sql/
-│   └── schema.sql                # profiles + properties + RLS + storage + indicação
+│   ├── schema.sql                # profiles + properties + RLS + storage + indicação
+│   └── patch_fix_signup_500.sql  # correção pontual de search_path (erro 500 no cadastro)
 ├── supabase/
 │   └── functions/
-│       └── generate-property-texts/
-│           └── index.ts          # Edge Function: chama a OpenAI com a chave protegida
+│       ├── generate-property-texts/
+│       │   └── index.ts          # Edge Function: chama a OpenAI com a chave protegida
+│       └── asaas-webhook/
+│           └── index.ts          # Edge Function: ativa assinatura + bônus de indicação
 ├── src/
 │   ├── components/
 │   │   ├── AuthScreen.jsx        # login / cadastro (com captura de ?ref=)
@@ -254,13 +302,13 @@ imobquick/
 └── vite.config.js
 ```
 
-## 12. Rodando localmente
+## 13. Rodando localmente
 
 ```bash
 npm run dev
 ```
 
-## 13. Build de produção
+## 14. Build de produção
 
 ```bash
 npm run build
@@ -268,10 +316,9 @@ npm run build
 
 Os arquivos finais ficam em `dist/`, prontos para deploy.
 
-## 14. Subindo pro GitHub e publicando (Vercel)
+## 15. Subindo pro GitHub e publicando (Vercel)
 
 **GitHub:**
-
 ```bash
 git init
 git add .
@@ -280,12 +327,10 @@ git branch -M main
 git remote add origin https://github.com/SEU_USUARIO/imobquick.git
 git push -u origin main
 ```
-
 O `.gitignore` já está configurado para **não** subir `node_modules/`, `dist/`
 nem o `.env` (que tem suas chaves secretas — nunca deve ir pro GitHub).
 
 **Vercel (recomendado para projetos Vite):**
-
 1. Acesse [vercel.com](https://vercel.com), conecte sua conta GitHub e importe o repositório
 2. A Vercel detecta automaticamente que é um projeto Vite (build command
    `npm run build`, output `dist`) — não precisa mudar nada
@@ -305,3 +350,4 @@ confira isso primeiro.
 
 **Depois do primeiro deploy:** qualquer novo `git push` na branch `main`
 já dispara um novo deploy automático — não precisa repetir o processo.
+

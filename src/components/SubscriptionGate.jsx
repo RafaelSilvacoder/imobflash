@@ -3,6 +3,7 @@ import { signOut } from '../services/authService'
 
 const CHECKOUT_URL =
   import.meta.env.VITE_CHECKOUT_URL || 'https://checkout.asaas.com/imobquick-mensal'
+const SUBSCRIPTION_PRICE = import.meta.env.VITE_SUBSCRIPTION_PRICE || '39,90'
 
 const BENEFITS = [
   { icon: Sparkles, text: 'Textos de divulgação gerados por IA em segundos' },
@@ -26,7 +27,7 @@ export default function SubscriptionGate({ profile }) {
           {expired ? 'Sua assinatura expirou' : 'Assinatura inativa'}
         </h1>
         <p className="mt-2 text-sm text-slate-400">
-          Assine o ImobQuick para continuar cadastrando imóveis e gerando textos com IA.
+          Assine o ImobFlash para continuar cadastrando imóveis e gerando textos com IA.
         </p>
 
         <div className="mt-6 space-y-3 rounded-2xl bg-white p-5 text-left shadow-xl">
@@ -46,7 +47,7 @@ export default function SubscriptionGate({ profile }) {
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-4
                        text-[15px] font-semibold text-white shadow-lg shadow-blue-600/30 transition active:scale-[0.98]"
           >
-            Assinar por R$ 39,90/mês
+            Assinar por R$ {SUBSCRIPTION_PRICE}/mês
           </a>
         </div>
 

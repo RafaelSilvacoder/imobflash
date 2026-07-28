@@ -41,3 +41,26 @@ export async function signOut() {
   const { error } = await supabase.auth.signOut()
   if (error) throw error
 }
+
+/**
+ * Envia o e-mail de recuperação de senha. O Supabase manda um link que,
+ * ao ser clicado, abre o app já autenticado num estado especial de
+ * "recuperação de senha" — ver App.jsx (evento PASSWORD_RECOVERY).
+ */
+export async function sendPasswordReset(email) {
+  const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: redirectUrl,
+  })
+  if (error) throw error
+}
+
+/**
+ * Define a nova senha depois que o usuário clicou no link de recuperação
+ * (precisa estar na sessão temporária criada pelo próprio link).
+ */
+export async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
+}

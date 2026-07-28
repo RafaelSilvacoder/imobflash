@@ -15,6 +15,7 @@ import { hasActiveSubscription, isAdmin, updateBrokerInfo, hasBrokerInfo } from 
 
 const CHECKOUT_URL =
   import.meta.env.VITE_CHECKOUT_URL || 'https://checkout.asaas.com/imobquick-mensal'
+const SUBSCRIPTION_PRICE = import.meta.env.VITE_SUBSCRIPTION_PRICE || '39,90'
 
 export default function ProfileScreen({ profile, onOpenAdmin, onProfileUpdated }) {
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -110,7 +111,7 @@ export default function ProfileScreen({ profile, onOpenAdmin, onProfileUpdated }
               className={inputClass}
               value={brokerName}
               onChange={(e) => setBrokerName(e.target.value)}
-              placeholder="Ex: Ana Silva"
+              placeholder="Ex: Ana Souza"
             />
           </div>
           <div>
@@ -131,7 +132,7 @@ export default function ProfileScreen({ profile, onOpenAdmin, onProfileUpdated }
               className={inputClass}
               value={creci}
               onChange={(e) => setCreci(e.target.value)}
-              placeholder="Ex: 21648"
+              placeholder="Digite seu CRECI aqui"
             />
           </div>
 
@@ -183,7 +184,7 @@ export default function ProfileScreen({ profile, onOpenAdmin, onProfileUpdated }
             className="mt-3 flex w-full items-center justify-center rounded-xl bg-blue-600 py-3
                        text-sm font-semibold text-white shadow-lg shadow-blue-600/30"
           >
-            Assinar por R$ 39,90/mês
+            Assinar por R$ {SUBSCRIPTION_PRICE}/mês
           </a>
         )}
       </div>
