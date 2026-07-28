@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Sparkles, ImagePlus, X, Loader2 } from 'lucide-react'
+import { Sparkles, ImagePlus, X, Loader2, ChevronDown, Home } from 'lucide-react'
 
 const TIPOS = ['Casa', 'Apartamento', 'Terreno', 'Comercial']
 const FINALIDADES = ['Venda', 'Aluguel']
@@ -15,16 +15,21 @@ const INITIAL_STATE = {
   vacancies: '',
   area: '',
   details: '',
+  acceptsSubsidy: false,
+  minIncome: '',
+  subsidyValue: '',
+  downPaymentInfo: '',
 }
 
 export default function NewPropertyForm({ onGenerate, isGenerating, brokerInfoComplete, onGoToProfile }) {
   const [form, setForm] = useState(INITIAL_STATE)
   const [photos, setPhotos] = useState([])
+  const [showFinancing, setShowFinancing] = useState(false)
   const fileInputRef = useRef(null)
 
   function handleChange(e) {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type, checked } = e.target
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
 
   function handleFilesSelected(e) {
@@ -55,6 +60,9 @@ export default function NewPropertyForm({ onGenerate, isGenerating, brokerInfoCo
       bathrooms: Number(form.bathrooms) || 0,
       vacancies: Number(form.vacancies) || 0,
       area: Number(form.area) || 0,
+      minIncome: form.acceptsSubsidy && form.minIncome ? Number(form.minIncome) : null,
+      subsidyValue: form.acceptsSubsidy && form.subsidyValue ? Number(form.subsidyValue) : null,
+      downPaymentInfo: form.acceptsSubsidy ? form.downPaymentInfo : '',
       photos: photos.map((p) => p.file),
     })
   }
@@ -214,6 +222,80 @@ export default function NewPropertyForm({ onGenerate, isGenerating, brokerInfoCo
           onChange={handleChange}
           placeholder="Ex: Vista mar, piscina, reformado, próximo ao metrô..."
         />
+      </div>
+
+      {/* Financiamento / Subsídio (opcional, retrátil) */}
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowFinancing((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3"
+        >
+          <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <Home size={16} className="text-blue-600" />
+            Financiamento / Subsídio (opcional)
+          </span>
+          <ChevronDown
+            size={18}
+            className={`text-slate-400 transition-transform ${showFinancing ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        {showFinancing && (
+          <div className="space-y-3 border-t border-slate-100 px-4 py-4">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                name="acceptsSubsidy"
+                checked={form.acceptsSubsidy}
+                onChange={handleChange}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              Este imóvel aceita subsídio (Minha Casa Minha Vida / financiamento facilitado)
+            </label>
+
+            {form.acceptsSubsidy && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelClass}>Renda mínima (R$)</label>
+                    <input
+                      className={inputClass}
+                      name="minIncome"
+                      type="number"
+                      inputMode="decimal"
+                      value={form.minIncome}
+                      onChange={handleChange}
+                      placeholder="Ex: 1400"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Valor do subsídio (R$)</label>
+                    <input
+                      className={inputClass}
+                      name="subsidyValue"
+                      type="number"
+                      inputMode="decimal"
+                      value={form.subsidyValue}
+                      onChange={handleChange}
+                      placeholder="Ex: 75000"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Condição de entrada</label>
+                  <input
+                    className={inputClass}
+                    name="downPaymentInfo"
+                    value={form.downPaymentInfo}
+                    onChange={handleChange}
+                    placeholder="Ex: Entrada facilitada, use seu FGTS"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Upload de fotos */}

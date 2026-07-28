@@ -3,6 +3,13 @@
 -- Rode este script inteiro no SQL Editor do seu projeto Supabase
 -- Inclui: properties, profiles, assinatura, indicação paga,
 -- RLS e bucket de fotos no Storage.
+--
+-- IMPORTANTE: todas as funções SECURITY DEFINER abaixo têm
+-- `set search_path = public` explícito. Sem isso, funções chamadas
+-- pelo serviço interno de Auth do Supabase (como a trigger de
+-- cadastro) podem falhar com "function does not exist" e derrubar
+-- o cadastro com erro 500 — search_path do processo de Auth não
+-- inclui `public` por padrão.
 -- ============================================================
 
 create extension if not exists "uuid-ossp";
@@ -47,7 +54,7 @@ begin
   end loop;
   return result;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 -- ------------------------------------------------------------
 -- Trigger: cria o perfil automaticamente no cadastro do usuário.
@@ -60,7 +67,7 @@ declare
   new_code text;
   ref_code text;
 begin
-  new_code := generate_referral_code();
+  new_code := public.generate_referral_code();
   ref_code := nullif(new.raw_user_meta_data->>'referred_by', '');
 
   insert into public.profiles (
@@ -77,7 +84,7 @@ begin
   );
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -116,7 +123,7 @@ begin
     end if;
   end if;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- ------------------------------------------------------------
 -- Função de uso do painel Admin: concede N dias grátis a um perfil.
@@ -134,7 +141,7 @@ begin
     end
   where id = target_user_id;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- ============================================================
 -- 3. TABELA PROPERTIES
@@ -176,13 +183,22 @@ create policy "Usuário pode atualizar próprio perfil"
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
+-- Função auxiliar para checar se o usuário logado é admin, sem causar
+-- recursão nas políticas de RLS da própria tabela profiles (uma política
+-- de profiles não pode fazer "select ... from profiles" diretamente sem
+-- disparar o erro "infinite recursion detected in policy").
+create or replace function public.is_admin()
+returns boolean as $$
+  select role = 'admin' from public.profiles where id = auth.uid();
+$$ language sql security definer set search_path = public stable;
+
 create policy "Admins podem ver todos os perfis"
   on public.profiles for select
-  using ((select role from public.profiles where id = auth.uid()) = 'admin');
+  using (public.is_admin());
 
 create policy "Admins podem atualizar todos os perfis"
   on public.profiles for update
-  using ((select role from public.profiles where id = auth.uid()) = 'admin');
+  using (public.is_admin());
 
 -- ---------------- Properties ----------------
 create policy "Usuários podem ver seus imóveis"
@@ -259,11 +275,11 @@ create policy "Usuário pode ver seus próprios dispositivos"
 -- Admins podem ver e atualizar todos os dispositivos (aprovar/rejeitar)
 create policy "Admins podem ver todos os dispositivos"
   on public.known_devices for select
-  using ((select role from public.profiles where id = auth.uid()) = 'admin');
+  using (public.is_admin());
 
 create policy "Admins podem atualizar todos os dispositivos"
   on public.known_devices for update
-  using ((select role from public.profiles where id = auth.uid()) = 'admin');
+  using (public.is_admin());
 
 -- ------------------------------------------------------------
 -- Função chamada pelo frontend a cada login/carregamento do app.
@@ -308,7 +324,7 @@ begin
 
   return result_status;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- ------------------------------------------------------------
 -- Funções usadas pelo Painel Admin para aprovar/rejeitar dispositivos.
@@ -345,7 +361,7 @@ begin
     update public.known_devices set status = 'revoked' where id = oldest_device_id;
   end if;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 create or replace function admin_reject_device(target_device_row_id uuid)
 returns void as $$
@@ -356,10 +372,34 @@ begin
 
   update public.known_devices set status = 'rejected' where id = target_device_row_id;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- ============================================================
--- 7. (Opcional) Criar seu primeiro usuário admin
+-- 7. INTEGRAÇÃO COM ASAAS (pagamento da assinatura)
+-- ============================================================
+-- Vincula o pagamento confirmado no Asaas ao perfil correto no
+-- Supabase, e evita que o bônus de indicação seja concedido mais
+-- de uma vez para o mesmo indicado (só na primeira cobrança paga).
+
+alter table public.profiles add column if not exists asaas_customer_id text unique;
+alter table public.profiles add column if not exists referral_bonus_processed boolean default false;
+
+create index if not exists idx_profiles_asaas_customer_id on public.profiles(asaas_customer_id);
+
+-- ============================================================
+-- 8. FINANCIAMENTO / SUBSÍDIO (campos opcionais do imóvel)
+-- ============================================================
+-- Usado por corretores que trabalham com imóveis do Minha Casa
+-- Minha Vida / financiamento facilitado. Tudo opcional — se não
+-- preenchido, simplesmente não aparece nos textos gerados.
+
+alter table public.properties add column if not exists accepts_subsidy boolean default false;
+alter table public.properties add column if not exists min_income numeric;
+alter table public.properties add column if not exists subsidy_value numeric;
+alter table public.properties add column if not exists down_payment_info text;
+
+-- ============================================================
+-- 9. (Opcional) Criar seu primeiro usuário admin
 -- ============================================================
 -- Depois de cadastrar sua conta normalmente pelo app, rode:
 -- update public.profiles set role = 'admin' where email = 'seu-email@exemplo.com';

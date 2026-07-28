@@ -32,6 +32,10 @@ function buildPrompt(property: Record<string, unknown>) {
     brokerName,
     brokerPhone,
     creci,
+    acceptsSubsidy,
+    minIncome,
+    subsidyValue,
+    downPaymentInfo,
   } = property as {
     title: string
     type: string
@@ -46,6 +50,10 @@ function buildPrompt(property: Record<string, unknown>) {
     brokerName?: string
     brokerPhone?: string
     creci?: string
+    acceptsSubsidy?: boolean
+    minIncome?: number | null
+    subsidyValue?: number | null
+    downPaymentInfo?: string | null
   }
 
   const precoFormatado = Number(price || 0).toLocaleString('pt-BR', {
@@ -65,6 +73,19 @@ no formato "📱 ${brokerName ?? ''}${brokerPhone ? ' - ' + brokerPhone : ''}" s
 `
       : ''
 
+  const dadosSubsidio = acceptsSubsidy
+    ? `
+FINANCIAMENTO / SUBSÍDIO (esse imóvel aceita — mencione isso de forma natural
+em pelo menos um ponto de cada um dos 3 textos, é um forte chamativo pro
+público de imóveis populares/Minha Casa Minha Vida; NÃO invente valores além
+dos informados abaixo):
+- Aceita subsídio/financiamento facilitado: sim
+${minIncome ? `- Renda mínima necessária: ${Number(minIncome).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}
+${subsidyValue ? `- Valor do subsídio disponível: até ${Number(subsidyValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}
+${downPaymentInfo ? `- Condição de entrada: ${downPaymentInfo}` : ''}
+`
+    : ''
+
   return `
 Você é um redator especialista em marketing imobiliário no Brasil.
 Com base nos dados do imóvel abaixo, gere 3 textos de divulgação distintos.
@@ -80,14 +101,14 @@ DADOS DO IMÓVEL:
 - Vagas de garagem: ${vacancies}
 - Área: ${area} m²
 - Diferenciais: ${details || 'Não informado'}
-${dadosCorretor}
+${dadosSubsidio}${dadosCorretor}
 Gere os textos seguindo EXATAMENTE estas diretrizes e responda SOMENTE em JSON válido,
 sem markdown, sem texto extra, no seguinte formato:
 
 {
-  "instagram": "texto para Instagram: envolvente, com emojis, linguagem informal, terminando com um bloco de 8 a 12 hashtags do mercado imobiliário${brokerName ? ', e antes das hashtags inclua a linha com os dados do corretor' : ''}",
-  "portal": "texto para portais como ZAP/OLX: técnico, estruturado em tópicos com marcadores, profissional, sem emojis em excesso, destacando características objetivas do imóvel${brokerName ? ', terminando com os dados do corretor' : ''}",
-  "whatsapp": "texto curto para WhatsApp: persuasivo, direto, no máximo 4-5 linhas, terminando com uma chamada para ação clara (ex: convite para agendar visita)${brokerName ? ' e, na linha seguinte, os dados do corretor' : ''}"
+  "instagram": "texto para Instagram: comece com um gancho forte na primeira linha (uma pergunta, uma promessa ou o maior diferencial do imóvel), não com 'Confira este imóvel'. Use quebras de linha curtas (estilo legenda de post, não parágrafo corrido), 2-3 emojis relevantes espalhados (não um em cada linha), destaque no máximo 3 diferenciais reais do imóvel (não invente características que não foram informadas), e feche com 8-12 hashtags de mercado imobiliário${brokerName ? ', com a linha dos dados do corretor logo antes das hashtags' : ''}",
+  "portal": "texto para portais como ZAP/OLX: primeiro parágrafo com uma frase de impacto sobre o imóvel (não repita o título), depois lista em tópicos com marcadores das características objetivas (quartos, banheiros, vagas, área, localização${acceptsSubsidy ? ', e condições de financiamento/subsídio' : ''}), um parágrafo curto com os diferenciais reais, tom profissional e confiável, sem emojis em excesso${brokerName ? ', terminando com os dados do corretor' : ''}",
+  "whatsapp": "texto para WhatsApp escrito como se o corretor estivesse mandando pessoalmente pra um cliente interessado — natural, caloroso, NUNCA robótico ou genérico. Regras obrigatórias: (1) comece direto pelo que há de mais atrativo no imóvel, sem saudação genérica tipo 'Olá, tenho uma oportunidade'; (2) mencione no máximo 2-3 detalhes concretos do imóvel (localização + 1-2 diferenciais reais, nunca invente características não informadas); (3) use quebras de linha entre ideias, não escreva tudo em bloco único; (4) crie senso de urgência ou oportunidade genuína SEM soar falso ou forçado (ex: mencionar que é ótimo momento por causa do preço ou condição, não 'corre que já era'); (5) termine com uma pergunta específica que convide resposta imediata (ex: pergunte o melhor horário pra visita, não apenas 'me chama'); (6) no máximo 5-6 linhas curtas no total${acceptsSubsidy ? '; (7) mencione rapidamente a condição de subsídio/financiamento em algum ponto' : ''}${brokerName ? '; (8) na linha seguinte à pergunta final, inclua os dados do corretor' : ''}"
 }
 `.trim()
 }

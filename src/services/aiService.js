@@ -43,8 +43,23 @@ export async function generatePropertyTexts(property) {
  * enquanto estiver desenvolvendo.
  */
 export function generateMockTexts(property) {
-  const { title, location, price, bedrooms, bathrooms, vacancies, area, details, brokerName, brokerPhone, creci } =
-    property
+  const {
+    title,
+    location,
+    price,
+    bedrooms,
+    bathrooms,
+    vacancies,
+    area,
+    details,
+    brokerName,
+    brokerPhone,
+    creci,
+    acceptsSubsidy,
+    minIncome,
+    subsidyValue,
+    downPaymentInfo,
+  } = property
   const precoFormatado = Number(price || 0).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -55,9 +70,21 @@ export function generateMockTexts(property) {
       ? `\n\n📱 ${brokerName || ''}${brokerPhone ? ' - ' + brokerPhone : ''}${creci ? `\n🪪 CRECI ${creci}` : ''}`
       : ''
 
+  const infoSubsidio = acceptsSubsidy
+    ? `\n\n💰 Aceita subsídio/financiamento facilitado!${
+        minIncome
+          ? ` Renda mínima: ${Number(minIncome).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.`
+          : ''
+      }${
+        subsidyValue
+          ? ` Subsídio de até ${Number(subsidyValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.`
+          : ''
+      }${downPaymentInfo ? ` ${downPaymentInfo}.` : ''}`
+    : ''
+
   return Promise.resolve({
-    instagram: `✨ ${title} em ${location}! 🏡\n\n${bedrooms} quartos | ${bathrooms} banheiros | ${vacancies} vagas | ${area}m²\n\n${details || 'Um imóvel incrível esperando por você!'} 💙\n\n📍 ${location}\n💰 ${precoFormatado}${rodapeCorretor}\n\n#imoveis #corretordeimoveis #casanova #apartamento #investimento #decoracao #arquitetura #imobiliaria #vendaimoveis #lardocelar`,
-    portal: `${title}\n\nLocalização: ${location}\n\nCaracterísticas:\n- Quartos: ${bedrooms}\n- Banheiros: ${bathrooms}\n- Vagas de garagem: ${vacancies}\n- Área útil: ${area} m²\n\nDiferenciais:\n${details || 'Não informado'}\n\nValor: ${precoFormatado}\n\nEntre em contato para mais informações ou agendamento de visita.${rodapeCorretor}`,
-    whatsapp: `Olá! 👋 Tenho uma excelente oportunidade em ${location}: ${title}, por ${precoFormatado}.\n\n${details || ''}\n\nQuer agendar uma visita ainda essa semana? Me chama aqui! 🔑${rodapeCorretor}`,
+    instagram: `✨ ${title} em ${location}! 🏡\n\n${bedrooms} quartos | ${bathrooms} banheiros | ${vacancies} vagas | ${area}m²\n\n${details || 'Um imóvel incrível esperando por você!'} 💙\n\n📍 ${location}\n💰 ${precoFormatado}${infoSubsidio}${rodapeCorretor}\n\n#imoveis #corretordeimoveis #casanova #apartamento #investimento #decoracao #arquitetura #imobiliaria #vendaimoveis #lardocelar`,
+    portal: `${title}\n\nLocalização: ${location}\n\nCaracterísticas:\n- Quartos: ${bedrooms}\n- Banheiros: ${bathrooms}\n- Vagas de garagem: ${vacancies}\n- Área útil: ${area} m²\n\nDiferenciais:\n${details || 'Não informado'}\n\nValor: ${precoFormatado}${infoSubsidio}\n\nEntre em contato para mais informações ou agendamento de visita.${rodapeCorretor}`,
+    whatsapp: `${title} em ${location} 🏡\n\n${details || 'Um imóvel com ótimo custo-benefício'}, por ${precoFormatado}.${infoSubsidio}\n\nVocê teria disponibilidade essa semana pra conhecer pessoalmente?${rodapeCorretor}`,
   })
 }

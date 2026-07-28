@@ -9,6 +9,7 @@ import {
 } from './services/propertyService'
 import { getMyProfile, hasActiveSubscription, isAdmin, hasBrokerInfo } from './services/profileService'
 import { registerCurrentDevice } from './services/deviceService'
+import { buildWhatsappLink } from './utils/whatsappLink'
 
 import AuthScreen from './components/AuthScreen'
 import SubscriptionGate from './components/SubscriptionGate'
@@ -188,6 +189,10 @@ export default function App() {
         vacancies: pendingProperty.vacancies,
         area: pendingProperty.area,
         details: pendingProperty.details,
+        accepts_subsidy: pendingProperty.acceptsSubsidy || false,
+        min_income: pendingProperty.minIncome ?? null,
+        subsidy_value: pendingProperty.subsidyValue ?? null,
+        down_payment_info: pendingProperty.downPaymentInfo || null,
         ai_texts: modalTexts,
         photo_urls: photoUrls,
       })
@@ -234,9 +239,25 @@ export default function App() {
       property.ai_texts?.whatsapp ||
       `Olá! Tenho uma ótima oportunidade: ${property.title} em ${property.location} por ${precoFormatado}. Vamos conversar?`
 
+    const link = buildWhatsappLink(profile?.broker_phone, message)
+
+    if (!link) {
+      alert(
+        'Cadastre seu WhatsApp na aba Perfil pra gerar um link clicável (tipo os que aparecem em anúncios do Facebook). Por enquanto, copiei só a mensagem.'
+      )
+      try {
+        await navigator.clipboard.writeText(message)
+      } catch (err) {
+        console.error(err)
+      }
+      return
+    }
+
     try {
-      await navigator.clipboard.writeText(message)
-      alert('Mensagem copiada! Cole no WhatsApp para enviar.')
+      await navigator.clipboard.writeText(link)
+      alert(
+        'Link copiado! Cole no campo de link do seu anúncio (Facebook, Instagram, etc) — ao clicar, abre direto a conversa no seu WhatsApp com a mensagem pronta.'
+      )
     } catch (err) {
       console.error(err)
     }
@@ -306,9 +327,9 @@ export default function App() {
         <div className="mx-auto flex max-w-md items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-lg font-bold text-white">
-              IQ
+              IF
             </div>
-            <span className="text-lg font-bold text-white">ImobQuick</span>
+            <span className="text-lg font-bold text-white">ImobFlash</span>
           </div>
         </div>
       </header>
@@ -357,6 +378,7 @@ export default function App() {
           isSaving={isSaving}
           saved={saved}
           readOnly={modalReadOnly}
+          brokerPhone={profile?.broker_phone}
         />
       )}
     </div>

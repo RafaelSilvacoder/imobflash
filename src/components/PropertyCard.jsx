@@ -12,6 +12,7 @@ export default function PropertyCard({ property, onViewTexts, onCopyWhatsapp, on
     vacancies,
     area,
     photo_urls,
+    accepts_subsidy,
   } = property
 
   const cover = photo_urls?.[0]
@@ -38,6 +39,11 @@ export default function PropertyCard({ property, onViewTexts, onCopyWhatsapp, on
           <span className="rounded-full bg-blue-600/90 px-2.5 py-1 text-[11px] font-semibold text-white">
             {purpose}
           </span>
+          {accepts_subsidy && (
+            <span className="rounded-full bg-green-600/90 px-2.5 py-1 text-[11px] font-semibold text-white">
+              💰 Subsídio
+            </span>
+          )}
         </div>
       </div>
 
@@ -76,7 +82,7 @@ export default function PropertyCard({ property, onViewTexts, onCopyWhatsapp, on
             className="flex flex-col items-center gap-1 rounded-xl bg-green-50 py-2.5 text-green-700 active:bg-green-100"
           >
             <MessageCircle size={16} />
-            <span className="text-[11px] font-medium">Copiar Zap</span>
+            <span className="text-[11px] font-medium">Link WhatsApp</span>
           </button>
           <button
             onClick={() => onDelete(property)}
