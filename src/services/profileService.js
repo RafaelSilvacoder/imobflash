@@ -31,11 +31,17 @@ export function isAdmin(profile) {
 
 /**
  * Monta o link de indicação único do corretor.
- * Ex: https://imobquick.com.br/register?ref=AB12C3
+ * Ex: https://imobflash.vercel.app/?ref=AB12C3
+ *
+ * Usa a raiz do site (não uma rota tipo /register) porque este app é uma
+ * SPA sem sistema de rotas — qualquer caminho diferente de "/" retorna
+ * 404 na Vercel. O parâmetro ?ref= é lido direto na raiz (ver
+ * getReferralCodeFromUrl em authService.js), e a tela de login já abre
+ * automaticamente na aba de cadastro quando detecta esse parâmetro.
  */
 export function buildReferralLink(profile) {
   const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin
-  return `${baseUrl}/register?ref=${profile?.referral_code ?? ''}`
+  return `${baseUrl}/?ref=${profile?.referral_code ?? ''}`
 }
 
 /**

@@ -3,14 +3,16 @@ import { Loader2, Home, Check } from 'lucide-react'
 import { signIn, signUp, getReferralCodeFromUrl, sendPasswordReset } from '../services/authService'
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot'
+  const referredBy = getReferralCodeFromUrl()
+
+  // Se a pessoa chegou por um link de indicação (?ref=CODIGO), já abre
+  // direto na aba de cadastro, em vez de login.
+  const [mode, setMode] = useState(referredBy ? 'register' : 'login') // 'login' | 'register' | 'forgot'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [resetEmailSent, setResetEmailSent] = useState(false)
-
-  const referredBy = getReferralCodeFromUrl()
 
   async function handleSubmit(e) {
     e.preventDefault()
